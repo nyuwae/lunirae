@@ -22,7 +22,50 @@ local map
 local mapfolder = game:WaitForChild("ServerStorage"):WaitForChild("Maps")
 local mapstorage = game:WaitForChild("Workspace"):WaitForChild("MapStorage")
 local mapfinishscript = game:WaitForChild("ServerScriptService"):WaitForChild("MapScripts"):WaitForChild("MapFinish")
-local catchups = game:WaitForChild("Workspace"):WaitForChild("Catchup")
+
+local catchup = game:WaitForChild("Workspace"):WaitForChild("Catchup")
+local catchmaster = catchup:WaitForChild("CatchupMaster")
+local allcatches = catchup:GetChildren()
+local info
+
+function getCatchupInfo()
+	local catchups = {}
+	local cfs = {}
+	
+	for i,v in ipairs(catchup:GetChildren()) do
+		local digit = string.gsub(v.Name, "Catchup", "")
+		local int = tonumber(digit)
+		if not table.find(catchups, v) then
+			table.insert(catchups, int or #allcatches, v)
+		end
+	end
+
+	local master = table.find(catchups, "Master")
+	table.remove(catchups, master)
+	
+	for i = 1, #catchups do
+		local cf = catchups[i].PrimaryPart.CFrame
+		if not table.find(cfs, cf) then
+			table.insert(cfs, cf)
+		end
+	end
+	
+	local catchinfo = {catchups, cfs}
+	return catchinfo
+end
+
+function resetCatchup(catchinfo)
+	print("resetting")
+	local catchups = catchinfo[1]
+	local cframes = catchinfo[2]
+		
+	for i = 1, #catchups do
+		catchups[i]:SetPrimaryPartCFrame(cframes[i])
+		if catchups[i].Name == "Catchup1" then
+			catchmaster:SetPrimaryPartCFrame(CFrame.new(Vector3.new(0, 0, catchup.Catchup1.PrimaryPart.Position.Z + 800)) * CFrame.Angles(0, 0, 0))
+		end
+	end
+end
 
 function getPlayers(plrs)
 	local players = {}
@@ -89,14 +132,14 @@ function loadMap()
 		status.Value = "MapLoaded"
 	elseif #plrs < REQUIRED_PLRS then
 		print("Not enough players to start ("..#plrs.." out of "..REQUIRED_PLRS..")")
+		status.Value = "LackOfPlayers"
 		
 		wait(10)
 		
 		loadMap()
-		
-		status.Value = "LackOfPlayers"
 	elseif not maps[1] then
 		print("No maps found while picking")
+		status.Value = "CriticalError"
 		
 		local issue = "No maps found in ServerStorage"
 		fireError(issue)
@@ -120,18 +163,6 @@ function fireError(issue)
 	ErrorEvent:FireAllClients(issue)
 end
 
-function resetCatchup(catchups)
-	catchups.CatchupMaster:SetPrimaryPartCFrame(CFrame.new(0, 0.625, 827) * CFrame.Angles(0, 0, 0))
-	catchups.Catchup1:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -72) * CFrame.Angles(0, 0, 0))
-	catchups.Catchup2:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -584) * CFrame.Angles(0, 0, 0))
-	catchups.Catchup3:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -1096) * CFrame.Angles(0, 0, 0))
-	catchups.Catchup4:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -1608) * CFrame.Angles(0, 0, 0))
-	catchups.Catchup5:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -2120) * CFrame.Angles(0, 0, 0))
-	catchups.Catchup6:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -2632) * CFrame.Angles(0, 0, 0))
-	catchups.Catchup7:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -3144) * CFrame.Angles(0, 0, 0))
-	catchups.Catchup8:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -3656) * CFrame.Angles(0, 0, 0))
-	catchups.Catchup9:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -4168) * CFrame.Angles(0, 0, 0))
-end
 
 status.Changed:Connect(function()
 	local speaker = chatService:GetSpeaker("System")
@@ -150,7 +181,7 @@ status.Changed:Connect(function()
 		local map = getLoadedMap()
 		map:Destroy()
 		status.Value = "Intermission"
-		resetCatchup(catchups)
+		resetCatchup(info)
 		wait(30)
 		loadMap()
 	end 
@@ -158,7 +189,9 @@ end)
 
 function Init()	
 	status.Value = "NewServer"
-	
+	info = getCatchupInfo()
+	resetCatchup(info)
+
 	wait(10)
 	
 	loadMap()
