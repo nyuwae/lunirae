@@ -1,0 +1,167 @@
+--[[
+		map handler!!! it does the thingies
+			made by luniwae
+]]
+
+
+local REQUIRED_PLRS = 1
+
+-----------------------------------------------------------------------------
+
+local chatService = require(game:GetService("ServerScriptService"):WaitForChild("ChatServiceRunner"):WaitForChild("ChatService"))
+
+local values = game:WaitForChild("ServerStorage"):WaitForChild("Values")
+local status = values:WaitForChild("GameStatus")
+local winner = values:WaitForChild("Winner")
+
+local remotes = game:WaitForChild("ReplicatedStorage"):WaitForChild("Remotes")
+local ErrorEvent = remotes:WaitForChild("Error")
+local HasWonEvent = remotes:WaitForChild("HasWon")
+
+local map
+local mapfolder = game:WaitForChild("ServerStorage"):WaitForChild("Maps")
+local mapstorage = game:WaitForChild("Workspace"):WaitForChild("MapStorage")
+local mapfinishscript = game:WaitForChild("ServerScriptService"):WaitForChild("MapScripts"):WaitForChild("MapFinish")
+local catchups = game:WaitForChild("Workspace"):WaitForChild("Catchup")
+
+function getPlayers(plrs)
+	local players = {}
+	
+	table.clear(players)
+	for i,v in ipairs(game.Players:GetChildren()) do
+		if not table.find(players, v) then
+			table.insert(players, v)
+		end
+	end
+	
+	if players[1] then
+		print(#players.." player(s) found! ("..#players.." out of "..REQUIRED_PLRS..")")
+	end
+	
+	return players
+end
+
+function fetchMaps()
+	local maps = {}
+
+	status.Value = "MapFetching"
+	
+	table.clear(maps)
+	for i,v in ipairs(mapfolder:GetChildren()) do
+		if not table.find(maps, v) then
+			table.insert(maps, v)
+		end
+	end
+	
+	return maps
+end
+
+function getLoadedMap()
+	local loadedMaps = mapstorage:GetChildren()
+	local map = nil
+	
+	if loadedMaps[1] then
+		map = loadedMaps[1]
+	end
+	
+	return map
+end
+
+function loadMap()
+	local maps = fetchMaps()
+	local plrs = getPlayers()
+	local speaker = chatService:GetSpeaker("System")
+	
+	status.Value = "MapLoading"
+		
+	if maps[1] and #plrs >= REQUIRED_PLRS then
+		winner.Value = ""
+		local pickedMap = maps[(math.random(1, #maps))]
+		speaker:SayMessage("Loading Map: "..pickedMap.Name, "All")
+		print("Loading Map: "..pickedMap.Name)
+		local loadingMap = pickedMap:Clone()
+		loadingMap.Parent = mapstorage
+		local finishscript = mapfinishscript:Clone()
+		finishscript.Parent = loadingMap.FinishLine
+		finishscript.Disabled = false
+		
+		
+		status.Value = "MapLoaded"
+	elseif #plrs < REQUIRED_PLRS then
+		print("Not enough players to start ("..#plrs.." out of "..REQUIRED_PLRS..")")
+		
+		wait(10)
+		
+		loadMap()
+		
+		status.Value = "LackOfPlayers"
+	elseif not maps[1] then
+		print("No maps found while picking")
+		
+		local issue = "No maps found in ServerStorage"
+		fireError(issue)
+		
+		wait(10)
+		
+		loadMap()
+	end
+end
+
+function startRace()
+	local map = getLoadedMap()
+	
+	map:FindFirstChild("StarterPart").CanCollide = false
+	map:FindFirstChild("StarterPart").Transparency = 1
+	
+	status.Value = "RaceStarted"
+end
+
+function fireError(issue)
+	ErrorEvent:FireAllClients(issue)
+end
+
+function resetCatchup(catchups)
+	catchups.CatchupMaster:SetPrimaryPartCFrame(CFrame.new(0, 0.625, 827) * CFrame.Angles(0, 0, 0))
+	catchups.Catchup1:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -72) * CFrame.Angles(0, 0, 0))
+	catchups.Catchup2:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -584) * CFrame.Angles(0, 0, 0))
+	catchups.Catchup3:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -1096) * CFrame.Angles(0, 0, 0))
+	catchups.Catchup4:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -1608) * CFrame.Angles(0, 0, 0))
+	catchups.Catchup5:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -2120) * CFrame.Angles(0, 0, 0))
+	catchups.Catchup6:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -2632) * CFrame.Angles(0, 0, 0))
+	catchups.Catchup7:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -3144) * CFrame.Angles(0, 0, 0))
+	catchups.Catchup8:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -3656) * CFrame.Angles(0, 0, 0))
+	catchups.Catchup9:SetPrimaryPartCFrame(CFrame.new(0, 0.625, -4168) * CFrame.Angles(0, 0, 0))
+end
+
+status.Changed:Connect(function()
+	local speaker = chatService:GetSpeaker("System")
+	
+	if status.Value == "MapLoaded" then
+		wait(30)
+		
+		startRace()
+	elseif winner.Value and status.Value == "RaceFinished" then
+			
+		print(winner.Value.." has won the race!")
+		speaker:SayMessage(winner.Value.." has won the race!", "All")
+		HasWonEvent:FireAllClients(winner.Value)
+		
+		wait(20)
+		local map = getLoadedMap()
+		map:Destroy()
+		status.Value = "Intermission"
+		resetCatchup(catchups)
+		wait(30)
+		loadMap()
+	end 
+end)
+
+function Init()	
+	status.Value = "NewServer"
+	
+	wait(10)
+	
+	loadMap()
+end
+
+Init()
